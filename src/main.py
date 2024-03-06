@@ -15,13 +15,15 @@ class QTableWidgetItemDate(QTableWidgetItem):
         return self.date < other.date
 
 
-def format_date(s: str) -> date: 
+def format_date(s: str) -> date:
+    #s = "20201231"
     year = int(s[0:4])
     month = int(s[4:6])
     day = int(s[6:8])
     return date(year, month, day)
 
 def format_time(s: str) -> str:
+    #s = "245959"
     hours = s[0:2]
     minutes = s[2:4]
     return f"{hours}:{minutes}"
@@ -84,19 +86,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if file_name is None:
             print("no file selected")
             return
- 
+
         with open(file_name, "r") as f:
             text = f.read() 
             lines = text.split("\n")
             line = lines.pop(0)
-            while line is not None: 
+            while len(line) > 0: 
                 while line != "BEGIN:VEVENT":
                     if len(lines) == 0: 
-                        return 
+                        return
                     line = lines.pop(0)
                 event = parse_vevent(lines)
+                self.display_event(event) 
                 line = lines.pop(0)
-                self.display_event(event)
 
 
     def display_event(self, event: List[str | date]):
