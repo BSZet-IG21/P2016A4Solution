@@ -28,47 +28,6 @@ def format_time(s: str) -> str:
     minutes = s[2:4]
     return f"{hours}:{minutes}"
 
-def parse_vevent(lines: List[str]) -> List[str | date]:
-    #summary
-    line = lines.pop(0)
-    [_, value] = line.split(":", 1)
-    title = value
-    start = lines.pop(0)
-    end = lines.pop(0)
-    [key_start, value_start] = start.split(":", 1)
-    [_, value_end] = end.split(":", 1)
-    start_date =""
-    start_time = ""
-    end_date = ""
-    end_time = ""
-    if key_start.split("=",1)[1] == "DATE":
-        start_date = format_date(value_start)
-        end_date = format_date(value_end)
-    else: 
-        [date, time] = value_start.split("T", 1)
-        start_date = format_date(date)
-        start_time = format_time(time)    
-        [date, time] = value_end.split("T", 1)
-        end_date = format_date(date)
-        end_time = format_time(time)
-    #location or description 
-    line = lines.pop(0)
-    [key, value] = line.split(":", 1)
-    ort = ""
-    if key == "LOCATION": 
-        ort = value
-        line = lines.pop(0)
-        [key, value] = line.split(":", 1)
-    beschreibung = value
-    return [
-        start_date,
-        start_time,
-        end_date,
-        end_time,
-        ort,
-        title,
-        beschreibung 
-    ]
     
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -86,29 +45,59 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if file_name is None:
             print("no file selected")
             return
-
+            
         with open(file_name, "r") as f:
             text = f.read() 
             lines = text.split("\n")
-            line = lines.pop(0)
-            while len(line) > 0: 
-                while line != "BEGIN:VEVENT":
-                    if len(lines) == 0: 
-                        return
-                    line = lines.pop(0)
-                event = parse_vevent(lines)
-                self.display_event(event) 
-                line = lines.pop(0)
+            event: dict[str, str] | None = None
+            for line in lines:
+                if event is None:
+                    if line == "BEGIN:VEVENT": 
+                        event = {}
+                else: 
+                    if line == "END:VEVENT": 
+                        self.transform_dict_event(event)
+                        event = None
+                    else: 
+                        [key, val] = line.split(':', 1)
+                        event[key] = val
 
+
+    
+    def transform_dict_event(self, event: dict[str, str]): 
+        titel = event.get("SUMMARY", "")
+        beschreibung = event.get("DESCRIPTION", "")
+        ort = event.get("LOCATION", "")
+
+        date_s = event.get("DTSTART;VALUE=DATE") 
+        time_s = ""
+
+        if date_s is None: 
+            s = event.get("DTSTART;TZID=Europe/Berlin")
+            [date_s, time] = s.split("T", 1)
+            time_s = format_time(time)
+        date_s = format_date(date_s)
+
+        date_e = event.get("DTEND;VALUE=DATE")
+        time_e = ""
+
+        if date_e is None: 
+            s = event.get("DTEND;TZID=Europe/Berlin")
+            [date_e, time] = s.split("T", 1)
+            time_e = format_time(time)
+        date_e = format_date(date_e)
+
+        self.display_event([date_s, time_s, date_e, time_e, ort, titel, beschreibung])
 
     def display_event(self, event: List[str | date]):
-        t = self.tableWidget
-        t.setRowCount(t.rowCount() + 1)
+        self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
         for column, el in enumerate(event):
+            item = None
             if isinstance(el, str):
-                t.setItem(t.rowCount() - 1, column, QTableWidgetItem(el))
+                item = QTableWidgetItem(el)
             else: 
-                t.setItem(t.rowCount() -1, column, QTableWidgetItemDate(el))
+                item = QTableWidgetItemDate(el)
+            self.tableWidget.setItem(self.tableWidget.rowCount() -1 , column, item)
 
 
     def insert_row_4_event(self):
